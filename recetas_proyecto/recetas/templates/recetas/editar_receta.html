@@ -1,0 +1,153 @@
+{% extends 'recetas/base.html' %}
+{% load crispy_forms_tags %}
+{% load widget_tweaks %}
+
+{% block title %}Editar Receta: {{ receta.nombre }}{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-7">
+            <div class="card shadow-sm">
+                <div class="card-header text-center bg-primary text-white">
+                    <h4>Editar Receta</h4>
+                </div>
+                <div class="card-body">
+                    <form method="post" novalidate>
+                        {% csrf_token %}
+                        {{ form|crispy }}
+
+                        <hr>
+                        <h5>Ingredientes</h5>
+
+                        <div id="formset-container">
+                            {% for form in formset %}
+                                <div class="formset-row mb-3 border rounded p-3 position-relative">
+                                    {% for hidden in form.hidden_fields %}
+                                        {{ hidden }}
+                                    {% endfor %}
+
+                                    <div class="form-row">
+                                        <div class="col-md-6 mb-2">
+                                            {{ form.ingrediente|add_class:"form-control ingrediente-select" }}
+                                            {% if form.ingrediente.errors %}
+                                                <div class="text-danger">{{ form.ingrediente.errors }}</div>
+                                            {% endif %}
+                                        </div>
+                                        <div class="col-md-3 mb-2">
+                                            {{ form.cantidad|add_class:"form-control" }}
+                                            {% if form.cantidad.errors %}
+                                                <div class="text-danger">{{ form.cantidad.errors }}</div>
+                                            {% endif %}
+                                        </div>
+                                        <div class="col-md-3 mb-2">
+                                            <input type="text" placeholder="gramos" class="form-control unidad-field" readonly autocomplete="off">
+                                        </div>
+                                    </div>
+
+                                    {{ form.DELETE }}
+                                    <button type="button" class="btn btn-sm btn-danger remove-formset-row position-absolute" style="top: 10px; right: 10px;">Eliminar</button>
+                                </div>
+                            {% endfor %}
+                        </div>
+
+                        {{ formset.management_form }}
+
+                        <!-- Plantilla oculta para nuevo formulario -->
+                        <div id="empty-formset-form" class="formset-row mb-3 border rounded p-3 position-relative d-none">
+                            <div class="form-row">
+                                <div class="col-md-6 mb-2">
+                                    <select name="{{ formset.prefix }}-__prefix__-ingrediente" id="id_{{ formset.prefix }}-__prefix__-ingrediente" class="form-control ingrediente-select">
+                                        <option value="">---------</option>
+                                        {% for ingrediente in ingredientes %}
+                                            <option value="{{ ingrediente.id }}" data-unidad="{{ ingrediente.unidad }}">{{ ingrediente.nombre }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-3 mb-2">
+                                    <input type="number" name="{{ formset.prefix }}-__prefix__-cantidad" id="id_{{ formset.prefix }}-__prefix__-cantidad" class="form-control" step="0.01">
+                                </div>
+                                <div class="col-md-3 mb-2">
+                                    <input type="text" placeholder="unidad de medida" class="form-control unidad-field" readonly autocomplete="off">
+                                </div>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-danger remove-formset-row position-absolute" style="top: 10px; right: 10px;">Eliminar</button>
+                        </div>
+
+                        <div class="text-right">
+                            <button type="button" class="btn btn-outline-primary mt-3" id="add-formset-row">Agregar Ingrediente</button>
+                        </div>
+
+                        <div class="alert alert-info mt-3">
+                            <strong>Consejo:</strong> Debes añadir al menos un ingrediente para poder guardar la receta.
+                        </div>
+
+                        {% if formset.non_form_errors %}
+                            <div class="alert alert-danger">
+                                {{ formset.non_form_errors }}
+                            </div>
+                        {% endif %}
+
+                        <div class="mt-4 text-center">
+                            <button type="submit" class="btn btn-success">Guardar Cambios</button>
+                            <a href="{% url 'lista_recetas' %}" class="btn btn-secondary ml-2">Cancelar</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function updateUnidad(selectElement) {
+        const unidadInput = selectElement.closest('.form-row').querySelector('.unidad-field');
+        const selectedOption = selectElement.options[selectElement.selectedIndex];
+        const unidad = selectedOption.dataset.unidad || '';
+        if (unidadInput) unidadInput.value = unidad;
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const container = document.getElementById('formset-container');
+        const addButton = document.getElementById('add-formset-row');
+        const emptyForm = document.getElementById('empty-formset-form');
+        const totalFormsInput = document.getElementById('id_{{ formset.prefix }}-TOTAL_FORMS');
+
+        // Inicializar selects existentes
+        container.querySelectorAll('.ingrediente-select').forEach(select => {
+            updateUnidad(select);
+            select.addEventListener('change', () => updateUnidad(select));
+        });
+
+        addButton.addEventListener('click', function () {
+            const formIndex = parseInt(totalFormsInput.value);
+            const newForm = emptyForm.cloneNode(true);
+            newForm.classList.remove('d-none');
+            newForm.removeAttribute('id');
+
+            newForm.innerHTML = newForm.innerHTML.replace(/__prefix__/g, formIndex);
+            container.appendChild(newForm);
+            totalFormsInput.value = formIndex + 1;
+
+            const newSelect = newForm.querySelector('.ingrediente-select');
+            updateUnidad(newSelect);
+            newSelect.addEventListener('change', () => updateUnidad(newSelect));
+        });
+
+        container.addEventListener('click', function (e) {
+            if (e.target.classList.contains('remove-formset-row')) {
+                const row = e.target.closest('.formset-row');
+                const deleteInput = row.querySelector('input[name$="-DELETE"]');
+
+                if (deleteInput) {
+                    deleteInput.checked = true;
+                    row.style.display = 'none';
+                } else {
+                    row.remove();
+                    totalFormsInput.value = parseInt(totalFormsInput.value) - 1;
+                }
+            }
+        });
+    });
+</script>
+{% endblock %}
